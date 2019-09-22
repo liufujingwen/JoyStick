@@ -168,6 +168,13 @@ public class JoyStick : MonoBehaviour
         float radians = Mathf.Atan2(direction.y, direction.x);
         float angle = radians * Mathf.Rad2Deg;
 
+        if (m_Direction)
+        {
+            Vector3 eulerAngles = m_Direction.eulerAngles;
+            eulerAngles.z = angle;
+            m_Direction.eulerAngles = eulerAngles;
+        }
+
         if (distance > m_JoystickMoveRadius)
             distance = m_JoystickMoveRadius;
 
@@ -178,11 +185,11 @@ public class JoyStick : MonoBehaviour
             m_Joystick.transform.localPosition = pos;
         }
 
-        if (m_Direction)
+        if (m_ThreeD)
         {
-            Vector3 eulerAngles = m_Direction.eulerAngles;
-            eulerAngles.z = angle;
-            m_Direction.eulerAngles = eulerAngles;
+            float y = normalizedDirection.y;
+            normalizedDirection.y = normalizedDirection.z;
+            normalizedDirection.z = y;
         }
 
         m_Data.Power = distance / m_JoystickMoveRadius; ;

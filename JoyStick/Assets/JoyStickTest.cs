@@ -17,6 +17,6 @@ public class JoyStickTest : MonoBehaviour
     private void OnJoyStickMove(JoyStickData joyStickData)
     {
         Vector3 direction = joyStickData.Direction * moveSpeed * Time.deltaTime * joyStickData.Power;
-        moveTarget.Translate(new Vector3(direction.x, 0, direction.y));
+        moveTarget.Translate(direction);
     }
 }
