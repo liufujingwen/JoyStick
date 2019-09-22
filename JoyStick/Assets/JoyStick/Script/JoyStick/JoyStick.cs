@@ -8,11 +8,17 @@ using UnityEngine.EventSystems;
 
 public class JoyStick : MonoBehaviour
 {
-    public Action<JoyStickData> MoveHandler;
+    [Tooltip("是否控制3D Model")]
+    [SerializeField]
+    private bool m_ThreeD = true;
 
     [Tooltip("摇杆触发区域")]
     [SerializeField]
     private RectTransform m_MoveRect;
+
+    [Tooltip("摇杆底座显示区域")]
+    [SerializeField]
+    private RectTransform m_BackgroundRect;
 
     [Tooltip("摇杆底座")]
     [SerializeField]
@@ -30,19 +36,26 @@ public class JoyStick : MonoBehaviour
     [SerializeField]
     private float m_JoystickRadiusFactor = 1f;
 
-    //data
-    public JoyStickData data = new JoyStickData();
+    //拖拽回调
+    public Action<JoyStickData> MoveHandler;
+
+    //摇杆数据
+    private JoyStickData m_Data = new JoyStickData();
 
     private float m_JoystickMoveRadius;
-    private Vector3 m_TouchOrigin;//按下原点（Input.mouseposition）
-    private Rect BackroundMaxRect;//底座的显示范围
+    private Vector3 m_MouseOriginScreenPoint;//记录按下一瞬间的屏幕坐标
 
     private Camera m_UiCamera;
     private Vector3 m_JoyStickDefaultPosition;
 
     private bool m_Initalize = false;
     private bool m_InRect = false;
-    private bool m_Dragging = false;
+    private bool m_BeginDrag;//是否开始拖拽了
+    private bool m_Dragging = false;//正在拖拽
+
+    //背景底移动范围的对应四个角的世界坐标 0:左下角 1:左上角 2:右上角 3:右下角
+    private Vector3[] m_BackgroundRectCorners = new Vector3[4];
+
 
     private void Start()
     {
@@ -50,16 +63,10 @@ public class JoyStick : MonoBehaviour
         if (joyStickEvent == null)
             joyStickEvent = m_MoveRect.gameObject.AddComponent<JoyStickEvent>();
         joyStickEvent.PointerDownHandler = OnPointerDown;
+        joyStickEvent.BeginDragHandler = BeginDrag;
         joyStickEvent.PointerUpHandler = OnPointerUp;
 
-        //计算底座显示的最大范围
-        Vector2 joyStickBackgroundSize = new Vector2(m_BackGround.rect.width, m_BackGround.rect.height);
-        Vector2 joyStickBackgroundHalfSize = joyStickBackgroundSize * 0.5f;
-        float minX = m_MoveRect.position.x + joyStickBackgroundHalfSize.x;
-        float minY = m_MoveRect.position.y + joyStickBackgroundHalfSize.y;
-        float width = m_MoveRect.anchorMax.x - joyStickBackgroundSize.x;
-        float height = m_MoveRect.anchorMax.y - joyStickBackgroundSize.y;
-        BackroundMaxRect = new Rect(minX, minY, width, height);
+        m_BackgroundRect.GetWorldCorners(m_BackgroundRectCorners);
 
         Canvas canvas = m_Joystick.GetComponentInParent<Canvas>();
         m_UiCamera = canvas.worldCamera;
@@ -82,8 +89,13 @@ public class JoyStick : MonoBehaviour
 
     public void Update()
     {
-        //拖动
-        if (m_Dragging)
+        if (!m_InRect)
+            return;
+
+        if (!m_BeginDrag)
+            return;
+
+        if (m_BeginDrag)
             OnDrag();
     }
 
@@ -96,34 +108,59 @@ public class JoyStick : MonoBehaviour
         if (!m_InRect)
             return;
 
-        m_Dragging = true;
-
         Vector3 mouseWorlkPoint;
         if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(m_BackGround, touchPosition, m_UiCamera, out mouseWorlkPoint))
             return;
 
         mouseWorlkPoint.z = m_BackGround.position.z;
+
+        //修正x
+        if (mouseWorlkPoint.x < m_BackgroundRectCorners[0].x)
+            mouseWorlkPoint.x = m_BackgroundRectCorners[0].x;
+        else if (mouseWorlkPoint.x > m_BackgroundRectCorners[2].x)
+            mouseWorlkPoint.x = m_BackgroundRectCorners[2].x;
+
+        //修正y
+        if (mouseWorlkPoint.y < m_BackgroundRectCorners[3].y)
+            mouseWorlkPoint.y = m_BackgroundRectCorners[3].y;
+        else if (mouseWorlkPoint.y > m_BackgroundRectCorners[1].y)
+            mouseWorlkPoint.y = m_BackgroundRectCorners[1].y;
+
+        m_MouseOriginScreenPoint = RectTransformUtility.WorldToScreenPoint(m_UiCamera, mouseWorlkPoint);
         m_BackGround.transform.position = mouseWorlkPoint;
-        m_TouchOrigin = touchPosition;
 
         if (m_Direction && m_Direction.gameObject.activeSelf)
             m_Direction.gameObject.SetActive(false);
     }
 
+    public void BeginDrag(PointerEventData eventData)
+    {
+        if (!m_InRect)
+            return;
+
+        m_BeginDrag = true;
+    }
+
     public void OnDrag()
     {
-        if (!m_Dragging)
+        if (!m_BeginDrag)
             return;
 
         if (!m_InRect)
             return;
 
-        Vector3 direction = Input.mousePosition - m_TouchOrigin;
+        if (m_Direction && m_Direction.gameObject.activeSelf != m_Dragging)
+            m_Direction.gameObject.SetActive(m_Dragging);
+
+        Vector3 direction = Input.mousePosition - m_MouseOriginScreenPoint;
         Vector3 normalizedDirection = direction.normalized;
         float distance = direction.magnitude;
 
-        if (distance < 0.01f)
+        if (distance < 3f)
+        {
+            m_Dragging = false;
             return;
+        }
 
         m_Dragging = true;
 
@@ -131,34 +168,31 @@ public class JoyStick : MonoBehaviour
         float radians = Mathf.Atan2(direction.y, direction.x);
         float angle = radians * Mathf.Rad2Deg;
 
+        if (distance > m_JoystickMoveRadius)
+            distance = m_JoystickMoveRadius;
+
         //移动摇杆
         if (m_Joystick != null)
         {
-            if (distance > m_JoystickMoveRadius)
-                distance = m_JoystickMoveRadius;
-
             Vector3 pos = normalizedDirection * distance;
             m_Joystick.transform.localPosition = pos;
         }
 
         if (m_Direction)
         {
-            if (m_Direction && !m_Direction.gameObject.activeSelf)
-                m_Direction.gameObject.SetActive(true);
-
             Vector3 eulerAngles = m_Direction.eulerAngles;
             eulerAngles.z = angle;
             m_Direction.eulerAngles = eulerAngles;
         }
 
+        m_Data.Power = distance / m_JoystickMoveRadius; ;
+        m_Data.Angle = angle < 0 ? 360 + angle : angle;
+        m_Data.Direction = normalizedDirection;
+
         //派发事件
         if (MoveHandler != null)
         {
-            data.Power = distance / m_JoystickMoveRadius;
-            data.Radians = radians;
-            data.Angle = angle < 0 ? 360 + angle : angle;
-            data.Direction = normalizedDirection;
-            MoveHandler(data);
+            MoveHandler(m_Data);
         }
     }
 
@@ -176,7 +210,11 @@ public class JoyStick : MonoBehaviour
     public void Reset()
     {
         m_InRect = false;
+        m_BeginDrag = false;
         m_Dragging = false;
+
+        m_Data.Angle = 0;
+        m_Data.Power = 0;
 
         m_BackGround.localPosition = m_JoyStickDefaultPosition;
         m_Joystick.transform.localPosition = Vector3.zero;
