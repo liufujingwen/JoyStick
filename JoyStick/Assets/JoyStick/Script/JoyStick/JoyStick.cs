@@ -104,18 +104,10 @@ public class JoyStick : MonoBehaviour
 
         mouseWorlkPoint.z = m_BackGround.position.z;
 
-        //修正x
-        if (mouseWorlkPoint.x < m_BackgroundRectCorners[0].x)
-            mouseWorlkPoint.x = m_BackgroundRectCorners[0].x;
-        else if (mouseWorlkPoint.x > m_BackgroundRectCorners[2].x)
-            mouseWorlkPoint.x = m_BackgroundRectCorners[2].x;
-
-        //修正y
-        if (mouseWorlkPoint.y < m_BackgroundRectCorners[3].y)
-            mouseWorlkPoint.y = m_BackgroundRectCorners[3].y;
-        else if (mouseWorlkPoint.y > m_BackgroundRectCorners[1].y)
-            mouseWorlkPoint.y = m_BackgroundRectCorners[1].y;
-
+        //修正x,y
+        mouseWorlkPoint.x = Mathf.Clamp(mouseWorlkPoint.x, m_BackgroundRectCorners[0].x, m_BackgroundRectCorners[2].x);
+        mouseWorlkPoint.y = Mathf.Clamp(mouseWorlkPoint.y, m_BackgroundRectCorners[3].y, m_BackgroundRectCorners[1].y);
+      
         m_MouseOriginScreenPoint = RectTransformUtility.WorldToScreenPoint(m_UiCamera, mouseWorlkPoint);
         m_BackGround.transform.position = mouseWorlkPoint;
 
