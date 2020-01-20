@@ -1,9 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using System;
-using UnityEngine.UI;
-using Slider = UnityEngine.Experimental.UIElements.Slider;
 using UnityEngine.EventSystems;
 
 public class JoyStick : MonoBehaviour
@@ -36,8 +32,12 @@ public class JoyStick : MonoBehaviour
     [SerializeField]
     private float m_JoystickRadiusFactor = 1f;
 
-    //拖拽回调
-    public Action<JoyStickData> MoveHandler;
+    //拖拽开始
+    public Action beginHandler { get; set; }
+    //拖拽中
+    public Action<JoyStickData> moveHandler { get; set; }
+    //拖拽结束
+    public Action endHandle { get; set; }
 
     //摇杆数据
     private JoyStickData m_Data = new JoyStickData();
@@ -56,15 +56,15 @@ public class JoyStick : MonoBehaviour
     //背景底移动范围的对应四个角的世界坐标 0:左下角 1:左上角 2:右上角 3:右下角
     private Vector3[] m_BackgroundRectCorners = new Vector3[4];
 
-
     private void Start()
     {
         JoyStickEvent joyStickEvent = m_MoveRect.GetComponent<JoyStickEvent>();
         if (joyStickEvent == null)
             joyStickEvent = m_MoveRect.gameObject.AddComponent<JoyStickEvent>();
-        joyStickEvent.PointerDownHandler = OnPointerDown;
-        joyStickEvent.BeginDragHandler = BeginDrag;
-        joyStickEvent.PointerUpHandler = OnPointerUp;
+        joyStickEvent.pointerDownHandler = OnPointerDown;
+        joyStickEvent.beginDragHandler = BeginDrag;
+        joyStickEvent.dragHandler = OnDrag;
+        joyStickEvent.pointerUpHandler = OnPointerUp;
 
         m_BackgroundRect.GetWorldCorners(m_BackgroundRectCorners);
 
@@ -87,27 +87,17 @@ public class JoyStick : MonoBehaviour
             Reset();
     }
 
-    public void Update()
-    {
-        if (!m_InRect)
-            return;
-
-        if (!m_BeginDrag)
-            return;
-
-        if (m_BeginDrag)
-            OnDrag();
-    }
-
     public void OnPointerDown(PointerEventData eventData)
     {
-        Vector3 touchPosition = Input.mousePosition;
+        Vector3 touchPosition = m_UiCamera.WorldToScreenPoint(m_Joystick.transform.position);
 
+        //是否在摇杆控制的最大范围
         m_InRect = RectTransformUtility.RectangleContainsScreenPoint(m_MoveRect, touchPosition, m_UiCamera);
 
         if (!m_InRect)
             return;
 
+        //是否在摇杆圆形底座范围
         Vector3 mouseWorlkPoint;
         if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(m_BackGround, touchPosition, m_UiCamera, out mouseWorlkPoint))
             return;
@@ -139,9 +129,10 @@ public class JoyStick : MonoBehaviour
             return;
 
         m_BeginDrag = true;
+        beginHandler?.Invoke();
     }
 
-    public void OnDrag()
+    public void OnDrag(PointerEventData eventData)
     {
         if (!m_BeginDrag)
             return;
@@ -197,15 +188,9 @@ public class JoyStick : MonoBehaviour
         m_Data.Direction = normalizedDirection;
 
         //派发事件
-        if (MoveHandler != null)
-        {
-            MoveHandler(m_Data);
-        }
+        moveHandler?.Invoke(m_Data);
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
     public void OnPointerUp(PointerEventData eventData)
     {
         Reset();
@@ -216,6 +201,11 @@ public class JoyStick : MonoBehaviour
     /// </summary>
     public void Reset()
     {
+        if (m_BeginDrag)
+        {
+            endHandle?.Invoke();
+        }
+
         m_InRect = false;
         m_BeginDrag = false;
         m_Dragging = false;

@@ -4,26 +4,28 @@ using UnityEngine.EventSystems;
 
 public class JoyStickEvent : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,IBeginDragHandler,IDragHandler
 {
-    public Action<PointerEventData> PointerDownHandler;
-    public Action<PointerEventData> BeginDragHandler;
-    public Action<PointerEventData> PointerUpHandler;
+    public Action<PointerEventData> pointerDownHandler;
+    public Action<PointerEventData> beginDragHandler;
+    public Action<PointerEventData> dragHandler;
+    public Action<PointerEventData> pointerUpHandler;
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (null != PointerDownHandler) PointerDownHandler(eventData);
+        pointerDownHandler?.Invoke(eventData);
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (null != BeginDragHandler) BeginDragHandler(eventData);
+        beginDragHandler?.Invoke(eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
+        dragHandler?.Invoke(eventData);
     }
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        if (null != PointerUpHandler) PointerUpHandler(eventData);
+        pointerUpHandler?.Invoke(eventData);
     }
 }
