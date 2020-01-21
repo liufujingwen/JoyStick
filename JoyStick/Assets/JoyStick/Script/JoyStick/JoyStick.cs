@@ -92,24 +92,24 @@ public class JoyStick : MonoBehaviour
         Vector3 touchPosition = m_UiCamera.WorldToScreenPoint(m_Joystick.transform.position);
 
         //是否在摇杆控制的最大范围
-        m_InRect = RectTransformUtility.RectangleContainsScreenPoint(m_MoveRect, touchPosition, m_UiCamera);
+        m_InRect = RectTransformUtility.RectangleContainsScreenPoint(m_MoveRect, touchPosition, eventData.enterEventCamera);
 
         if (!m_InRect)
             return;
 
+        Vector3 mousePosition;
         //是否在摇杆圆形底座范围
-        Vector3 mouseWorlkPoint;
-        if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(m_BackGround, touchPosition, m_UiCamera, out mouseWorlkPoint))
+        if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(m_BackGround, touchPosition, eventData.enterEventCamera, out mousePosition))
             return;
 
-        mouseWorlkPoint.z = m_BackGround.position.z;
+        mousePosition.z = m_BackGround.position.z;
 
         //修正x,y
-        mouseWorlkPoint.x = Mathf.Clamp(mouseWorlkPoint.x, m_BackgroundRectCorners[0].x, m_BackgroundRectCorners[2].x);
-        mouseWorlkPoint.y = Mathf.Clamp(mouseWorlkPoint.y, m_BackgroundRectCorners[3].y, m_BackgroundRectCorners[1].y);
-      
-        m_MouseOriginScreenPoint = RectTransformUtility.WorldToScreenPoint(m_UiCamera, mouseWorlkPoint);
-        m_BackGround.transform.position = mouseWorlkPoint;
+        mousePosition.x = Mathf.Clamp(mousePosition.x, m_BackgroundRectCorners[0].x, m_BackgroundRectCorners[2].x);
+        mousePosition.y = Mathf.Clamp(mousePosition.y, m_BackgroundRectCorners[3].y, m_BackgroundRectCorners[1].y);
+
+        m_MouseOriginScreenPoint = RectTransformUtility.WorldToScreenPoint(m_UiCamera, mousePosition);
+        m_BackGround.transform.position = mousePosition;
 
         if (m_Direction && m_Direction.gameObject.activeSelf)
             m_Direction.gameObject.SetActive(false);
@@ -134,8 +134,8 @@ public class JoyStick : MonoBehaviour
 
         if (m_Direction && m_Direction.gameObject.activeSelf != m_Dragging)
             m_Direction.gameObject.SetActive(m_Dragging);
-
-        Vector3 direction = Input.mousePosition - m_MouseOriginScreenPoint;
+        Vector3 mousePosition = new Vector3(eventData.position.x, eventData.position.y, 0);
+        Vector3 direction = mousePosition - m_MouseOriginScreenPoint;
         Vector3 normalizedDirection = direction.normalized;
         float distance = direction.magnitude;
 
